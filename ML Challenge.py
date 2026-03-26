@@ -83,8 +83,8 @@ claims_clean.loc[
 
 # --------------------------------------------- DEMOGRAPHIC COLUMNS -------------------------------------------------------------------
 # Checking and Fixing Gender
-df['gender'].unique()
-df["gender"] = df["gender"].replace({
+claims_clean['gender'].unique()
+claims_clean["gender"] = claims_clean["gender"].replace({
     "M": "male",
     "Male": "male",
     "F": "female",
@@ -96,21 +96,21 @@ df["gender"] = df["gender"].replace({
 })
 
 # Checking and Fixing Age
-df["age"] = pd.to_numeric(df["age"], errors="coerce").astype("Int64")
-df["age"].describe()
-df["age"].unique()
-df.loc[df["age"] < 1, "age"] = None
-df.loc[df["age"] > 153, "age"] = None
+claims_clean["age"] = pd.to_numeric(claims_clean["age"], errors="coerce").astype("Int64")
+claims_clean["age"].describe()
+claims_clean["age"].unique()
+claims_clean.loc[claims_clean["age"] < 1, "age"] = None
+claims_clean.loc[claims_clean["age"] > 153, "age"] = None
 
 # Checking and Fixing patient_name
-df['patient_name'].unique()
-df[df["patient_name"].str.contains(r"[^a-zA-Z\s]", na=False)]
-df["patient_name"] = df["patient_name"].str.replace(
+claims_clean['patient_name'].unique()
+claims_clean[claims_clean["patient_name"].str.contains(r"[^a-zA-Z\s]", na=False)]
+claims_clean["patient_name"] = claims_clean["patient_name"].str.replace(
     r"^\s*([^,]+)\s*,\s*(.+)$",
     r"\2 \1",
     regex=True
 )
-df["patient_name"] = df["patient_name"].str.title()
+claims_clean["patient_name"] = claims_clean["patient_name"].str.title()
 
 
 
