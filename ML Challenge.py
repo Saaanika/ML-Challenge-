@@ -114,6 +114,40 @@ df["patient_name"] = df["patient_name"].str.title()
 
 
 
+## --------------------------------------------- Duplicate claims --------------------------------------------------------
+# -------------------------------
+# STEP 2: Handle duplicate claim_id
+# -------------------------------
+
+# flag duplicate claim_ids
+claims_clean["duplicate_claim_id"] = claims_clean.duplicated(
+    subset=["claim_id"], keep=False
+)
+
+print("Duplicate claim_ids:", claims_clean["duplicate_claim_id"].sum())
+
+# remove exact duplicate claim_ids (keep first)
+claims_clean = claims_clean.drop_duplicates(subset=["claim_id"], keep="first")
+
+# -------------------------------
+# STEP 3: Handle duplicate events (near-duplicates)
+# -------------------------------
+
+# define event keys (adjust if needed)
+key_cols = ["patient_id", "drug_id", "claim_date"]
+
+# flag duplicate events
+claims_clean["is_duplicate_event"] = claims_clean.duplicated(
+    subset=key_cols, keep=False
+)
+
+print("Duplicate events:", claims_clean["is_duplicate_event"].sum())
+
+# remove duplicate events (keep first)
+claims_clean = claims_clean.drop_duplicates(subset=key_cols, keep="first")
+
+
+
 
 
 
