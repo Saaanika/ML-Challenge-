@@ -149,6 +149,35 @@ claims_clean = claims_clean.drop_duplicates(subset=key_cols, keep="first")
 
 
 
+## --------------------------------------------- Date Logic --------------------------------------------------------
+
+
+# Fix MM/DD/YYYY → YYYY-MM-DD using explicit format
+mask_slash = claims_clean["dispense_date"].str.match(r"^\d{2}/\d{2}/\d{4}$", na=False)
+claims_clean.loc[mask_slash, "dispense_date"] = pd.to_datetime(
+    claims_clean.loc[mask_slash, "dispense_date"], format="%m/%d/%Y"
+).dt.strftime("%Y-%m-%d")
+
+# Fix Mon DD YYYY → YYYY-MM-DD using explicit format
+mask_text = claims_clean["dispense_date"].str.match(r"^[A-Za-z]{3} \d{2} \d{4}$", na=False)
+claims_clean.loc[mask_text, "dispense_date"] = pd.to_datetime(
+    claims_clean.loc[mask_text, "dispense_date"], format="%b %d %Y"
+).dt.strftime("%Y-%m-%d")
+
+
+# Define reasonable date range
+min_date = pd.Timestamp("2000-01-01")
+max_date = pd.Timestamp.today()
+
+# Parse the now-standardized column to Timestamps for comparison
+parsed = pd.to_datetime(claims_clean["dispense_date"], format="%Y-%m-%d", errors="coerce")
+
+# Flag anything outside the valid range (including unparseable NaT)
+out_of_range = parsed.isna() | (parsed < min_date) | (parsed > max_date)
+
+# Set invalid rows to NA
+claims_clean.loc[out_of_range, "dispense_date"] = pd.NA
+
 
 
 
