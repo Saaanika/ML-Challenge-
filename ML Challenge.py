@@ -80,3 +80,47 @@ claims_clean.loc[
     claims_clean["financial_mismatch"],
     "total_cost"
 ] = claims_clean["expected_total"]
+
+# --------------------------------------------- DEMOGRAPHIC COLUMNS -------------------------------------------------------------------
+# Checking and Fixing Gender
+df['gender'].unique()
+df["gender"] = df["gender"].replace({
+    "M": "male",
+    "Male": "male",
+    "F": "female",
+    "F ": "female",
+    "X": np.nan,
+    "OTHER": "other",
+    "nan": np.nan,
+    "Unknown": np.nan
+})
+
+# Checking and Fixing Age
+df["age"] = pd.to_numeric(df["age"], errors="coerce").astype("Int64")
+df["age"].describe()
+df["age"].unique()
+df.loc[df["age"] < 1, "age"] = None
+df.loc[df["age"] > 153, "age"] = None
+
+# Checking and Fixing patient_name
+df['patient_name'].unique()
+df[df["patient_name"].str.contains(r"[^a-zA-Z\s]", na=False)]
+df["patient_name"] = df["patient_name"].str.replace(
+    r"^\s*([^,]+)\s*,\s*(.+)$",
+    r"\2 \1",
+    regex=True
+)
+df["patient_name"] = df["patient_name"].str.title()
+
+
+
+
+
+
+
+
+
+
+
+
+
