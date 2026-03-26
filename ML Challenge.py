@@ -165,15 +165,14 @@ claims_clean.loc[mask_text, "dispense_date"] = pd.to_datetime(
 ).dt.strftime("%Y-%m-%d")
 
 
-# Define reasonable date range
-min_date = pd.Timestamp("2000-01-01")
+# No future dates
 max_date = pd.Timestamp.today()
 
 # Parse the now-standardized column to Timestamps for comparison
 parsed = pd.to_datetime(claims_clean["dispense_date"], format="%Y-%m-%d", errors="coerce")
 
-# Flag anything outside the valid range (including unparseable NaT)
-out_of_range = parsed.isna() | (parsed < min_date) | (parsed > max_date)
+# Flag anything outside the range (date in the future)
+out_of_range = parsed.isna() | (parsed > max_date)
 
 # Set invalid rows to NA
 claims_clean.loc[out_of_range, "dispense_date"] = pd.NA
