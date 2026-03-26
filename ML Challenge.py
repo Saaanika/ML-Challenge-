@@ -173,8 +173,78 @@ claims_clean.loc[out_of_range, "dispense_date"] = pd.NA
 
 
 
+# ---------------------------------------------
+# Merge cleaned claims data with training labels
+# ---------------------------------------------
+df = claims_clean.merge(outcomes_train, on="claim_id", how="inner")
+
+# 1. Decide your target column
+target_col = "high_risk"
+
+# 2. Choose your feature columns
+# Start with simple, reasonable predictors
+feature_cols = [
+    "DIN",
+    "gender",
+    "age",
+    "drug_cost",
+    "dispense_fee",
+    "total_cost",
+    "patient_name",
+    "dispense_date",
+    "region",
+    "quantity", "insurer_id",
+    "condition", "provider_id", "certificate_id",
+]
 
 
+# 3. Build X and y
+X = df[feature_cols].copy()
+y = df[target_col].copy()
+
+# 4. Convert date into useful numeric features
+X["dispense_date"] = pd.to_datetime(X["dispense_date"], errors="coerce")
+X["dispense_year"] = X["dispense_date"].dt.year
+X["dispense_month"] = X["dispense_date"].dt.month
+X["dispense_dayofweek"] = X["dispense_date"].dt.dayofweek
+
+# Drop raw date column after extracting parts
+X = X.drop(columns=["dispense_date"])
+
+# Optional: fill missing values before encoding
+X["age"] = X["age"].fillna(X["age"].median())
+X["dispense_year"] = X["dispense_year"].fillna(X["dispense_year"].median())
+X["dispense_month"] = X["dispense_month"].fillna(X["dispense_month"].median())
+X["dispense_dayofweek"] = X["dispense_dayofweek"].fillna(X["dispense_dayofweek"].median())
+
+# Fill missing categorical values
+X["gender"] = X["gender"].fillna("missing")
+X["patient_name"] = X["patient_name"].fillna("missing")
+X["DIN"] = X["DIN"].fillna("missing")
+
+# Encode categorical columns
+X = pd.get_dummies(X, drop_first=True)
+
+# Preview
+print(X.head())
+print(y.head())
+print(X.shape)
 
 
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+rf_model = RandomForestClassifier(random_state=42, n_estimators=300)
+rf_model.fit(X_train, y_train)
+
+rf_pred = rf_model.predict(X_test)
+
+print("Accuracy:", accuracy_score(y_test, rf_pred))
+print("\nConfusion Matrix:\n", confusion_matrix(y_test, rf_pred))
+print("\nClassification Report:\n", classification_report(y_test, rf_pred))
 
