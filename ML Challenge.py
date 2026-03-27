@@ -171,57 +171,143 @@ claims_clean.loc[out_of_range, "dispense_date"] = pd.NA
 
 
 
+#------------------------------------------- Randome Forest Model ---------------------------------------------------
+
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+rf_model = RandomForestClassifier(random_state=42, n_estimators=300)
+rf_model.fit(X_train, y_train)
+
+rf_pred = rf_model.predict(X_test)
+
+print("Accuracy:", accuracy_score(y_test, rf_pred))
+print("\nConfusion Matrix:\n", confusion_matrix(y_test, rf_pred))
+print("\nClassification Report:\n", classification_report(y_test, rf_pred))
+
+print(len(rf_pred))
+
+
 
 # ---------------------------------------------
-# Build features for FULL dataset (train + test)
+# Merge cleaned claims data with training labels
 # ---------------------------------------------
-full_df = claims_clean.copy()
+df = claims_clean.merge(outcomes_train, on="claim_id", how="inner")
 
-X_full = full_df[feature_cols].copy()
+# 1. Decide your target column
+target_col = "high_risk"
+
+# 2. Choose your feature columns
+# Start with simple, reasonable predictors
+feature_cols = [
+    "DIN",
+    "gender",
+    "age",
+    "drug_cost",
+    "dispense_fee",
+    "total_cost",
+    "dispense_date",
+    "region",
+    "quantity", "insurer_id",
+    "condition", "provider_id", "certificate_id",
+]
+
+
+# 3. Build X and y
+X = df[feature_cols].copy()
+y = df[target_col].copy()
+
+# 4. Convert date into useful numeric features
+X["dispense_date"] = pd.to_datetime(X["dispense_date"], errors="coerce")
+X["dispense_year"] = X["dispense_date"].dt.year
+X["dispense_month"] = X["dispense_date"].dt.month
+X["dispense_dayofweek"] = X["dispense_date"].dt.dayofweek
+
+# Drop raw date column after extracting parts
+X = X.drop(columns=["dispense_date"])
+
+# Optional: fill missing values before encoding
+X["age"] = X["age"].fillna(X["age"].median())
+X["dispense_year"] = X["dispense_year"].fillna(X["dispense_year"].median())
+X["dispense_month"] = X["dispense_month"].fillna(X["dispense_month"].median())
+X["dispense_dayofweek"] = X["dispense_dayofweek"].fillna(X["dispense_dayofweek"].median())
+
+# Fill missing categorical values
+X["gender"] = X["gender"].fillna("missing")
+X["patient_name"] = X["patient_name"].fillna("missing")
+X["DIN"] = X["DIN"].fillna("missing")
+
+# Encode categorical columns
+X = pd.get_dummies(X, drop_first=True)
+
+# Preview
+print(X.head())
+print(y.head())
+print(X.shape)
+
+
+
+
+# ---------------------------------------------
+# Create test (unlabeled) dataset
+# ---------------------------------------------
+test_df = claims_clean.merge(outcomes_train, on="claim_id", how="left")
+test_df = test_df[test_df["high_risk"].isna()].copy()
+
+# ---------------------------------------------
+# Build features EXACTLY like training
+# ---------------------------------------------
+X_test_final = test_df[feature_cols].copy()
 
 # Date features (same as before)
-X_full["dispense_date"] = pd.to_datetime(X_full["dispense_date"], errors="coerce")
-X_full["dispense_year"] = X_full["dispense_date"].dt.year
-X_full["dispense_month"] = X_full["dispense_date"].dt.month
-X_full["dispense_dayofweek"] = X_full["dispense_date"].dt.dayofweek
-X_full = X_full.drop(columns=["dispense_date"])
+X_test_final["dispense_date"] = pd.to_datetime(X_test_final["dispense_date"], errors="coerce")
+X_test_final["dispense_year"] = X_test_final["dispense_date"].dt.year
+X_test_final["dispense_month"] = X_test_final["dispense_date"].dt.month
+X_test_final["dispense_dayofweek"] = X_test_final["dispense_date"].dt.dayofweek
+X_test_final = X_test_final.drop(columns=["dispense_date"])
 
-# Fill missing values (same as training)
-X_full["age"] = X_full["age"].fillna(X_train["age"].median())
-X_full["dispense_year"] = X_full["dispense_year"].fillna(X_train["dispense_year"].median())
-X_full["dispense_month"] = X_full["dispense_month"].fillna(X_train["dispense_month"].median())
-X_full["dispense_dayofweek"] = X_full["dispense_dayofweek"].fillna(X_train["dispense_dayofweek"].median())
+# Fill missing values (same logic as training)
+X_test_final["age"] = X_test_final["age"].fillna(X_train["age"].median())
+X_test_final["dispense_year"] = X_test_final["dispense_year"].fillna(X_train["dispense_year"].median())
+X_test_final["dispense_month"] = X_test_final["dispense_month"].fillna(X_train["dispense_month"].median())
+X_test_final["dispense_dayofweek"] = X_test_final["dispense_dayofweek"].fillna(X_train["dispense_dayofweek"].median())
 
 # Fill categorical missing values
-X_full["gender"] = X_full["gender"].fillna("missing")
-X_full["patient_name"] = X_full["patient_name"].fillna("missing")
-X_full["DIN"] = X_full["DIN"].fillna("missing")
+X_test_final["gender"] = X_test_final["gender"].fillna("missing")
+X_test_final["patient_name"] = X_test_final["patient_name"].fillna("missing")
+X_test_final["DIN"] = X_test_final["DIN"].fillna("missing")
 
 # Encode categorical variables
-X_full = pd.get_dummies(X_full, drop_first=True)
+X_test_final = pd.get_dummies(X_test_final, drop_first=True)
 
 # Align columns with training data
-X_full = X_full.reindex(columns=X_train.columns, fill_value=0)
+X_test_final = X_test_final.reindex(columns=X_train.columns, fill_value=0)
 
 # ---------------------------------------------
-# Make predictions for ALL rows
+# Make predictions
 # ---------------------------------------------
-full_predictions = rf_model.predict(X_full)
+predictions = rf_model.predict(X_test_final)
 
-# (Optional: probabilities instead)
-# full_predictions = rf_model.predict_proba(X_full)[:, 1]
+
+# (Optional: probabilities instead — often better for competitions)
+# predictions = rf_model.predict_proba(X_test_final)[:, 1]
 
 # ---------------------------------------------
-# Create submission with ALL claim_ids
+# Create submission file
 # ---------------------------------------------
 submission = pd.DataFrame({
-    "claim_id": full_df["claim_id"],
-    "prediction": full_predictions
+    "claim_id": test_df["claim_id"],
+    "high_risk": predictions
 })
 
 # Save to CSV
 submission.to_csv("submission.csv", index=False)
 
-print("Submission file created with ALL predictions.")
+print("Submission file created: submission.csv")
 print(submission.head())
 print("Total rows:", submission.shape[0])
